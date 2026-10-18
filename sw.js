@@ -1,13 +1,10 @@
 // Офлайн-режим: в зале со слабой связью план открывается из кеша.
 // Поменяли картинки или PDF в dl/ — поднимите версию, иначе телефоны покажут старые файлы.
-const CACHE = 'plan-v1';
+// На этом же домене живут другие сайты со своими кешами — трогаем только кеши с префиксом plan-.
+const PREFIX = 'plan-';
+const CACHE = PREFIX + 'v2';
 const CORE = [
   './',
-  'manifest.webmanifest',
-  'icons/icon-192.png',
-  'icons/icon-512.png',
-  'icons/apple-touch-icon.png',
-  'icons/favicon-32.png',
   'dl/plan-5-dney.pdf',
   'dl/den-1.png',
   'dl/den-2.png',
@@ -24,7 +21,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith(PREFIX) && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -58,6 +55,8 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
+  // Манифест и иконки — только из сети: установщик ярлыка на Android сверяет их с тем, что лежит на сайте.
+  if (url.pathname.endsWith('/manifest.webmanifest') || url.pathname.includes('/icons/')) return;
   if (request.mode === 'navigate' && url.origin === self.location.origin) {
     event.respondWith(page(event));
   } else if (url.origin === self.location.origin
